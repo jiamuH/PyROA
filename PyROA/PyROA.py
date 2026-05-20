@@ -1405,7 +1405,7 @@ def FullFit(data, priors, init_tau, init_delta, add_var, sig_level, Nsamples,
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, args=[data, priors, add_var, size,sig_level, include_slow_comp, 
                                         slow_comp_delta, P_func, slow_comps, P_slow, init_delta, delay_dist, psi_types, 
                                         pos_ref, AccDisc, wavelengths, integral, integral2, init_params_chunks,memfunction, gridsize], pool=pool, backend=backend)
-        sampler.run_mcmc(pos, Nsamples, progress=True);
+        sampler.run_mcmc(pos, Nsamples, progress=True, skip_initial_state_check=True);
 
     #Extract samples with burn-in of 1000
     samples_flat = sampler.get_chain(discard=Nburnin, thin=15, flat=True)
