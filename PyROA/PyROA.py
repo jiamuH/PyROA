@@ -155,7 +155,7 @@ def AccDisc(l_0, l, T1, b,integral,t, min_delay, conv):
 
 
 
-@jit(nopython=True, cache=False, parallel=False)
+@jit(nopython=True, cache=True, fastmath=True, parallel=False)
 def CalculatePorc(t_data, Flux, Flux_err, delta, memfunction = 'gaussian'):
 
     Ps = np.empty(len(t_data))
@@ -218,7 +218,7 @@ def CalculatePorc(t_data, Flux, Flux_err, delta, memfunction = 'gaussian'):
 
 
 
-@jit(nopython=True, cache=False, parallel=False)
+@jit(nopython=True, cache=True, fastmath=True, parallel=False)
 def RunningOptimalAverage(t_data, Flux, Flux_err, delta,memfunction, gridsize):
     #Inputs
     # Flux : Array of data values
@@ -400,7 +400,7 @@ def CalcWinds(t_data, Flux, Flux_err, delta, rmss, N, sizes,  taus, psi_types, w
 
 
 
-@jit(nopython=True, cache=False, parallel=False)
+@jit(nopython=True, cache=True, fastmath=True, parallel=False)
 def RunningOptimalAverageConv(t_data, Flux, Flux_err, deltas, factors, conv, t):
     #Inputs
     # Flux : Array of data values
@@ -488,7 +488,7 @@ def RunningOptimalAverageConv(t_data, Flux, Flux_err, deltas, factors, conv, t):
 
 
 
-@jit(nopython=True, cache=False, parallel=False)
+@jit(nopython=True, cache=True, fastmath=True, parallel=False)
 def RunningOptimalAverageOutConv(mjd, t_data, Flux, Flux_err, factors, conv, prev, t, delta):
     #Inputs
     # Flux : Array of data values
@@ -574,7 +574,7 @@ def RunningOptimalAverageOutConv(mjd, t_data, Flux, Flux_err, factors, conv, pre
 
 
 
-@jit(nopython=True, cache=False, parallel=False)
+@jit(nopython=True, cache=True, fastmath=True, parallel=False)
 def CalculateP(t_data, Flux, Flux_err, delta,memfunction):
 
     Ps = np.empty(len(t_data))
