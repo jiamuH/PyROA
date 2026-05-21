@@ -14,7 +14,7 @@ from pandas import DataFrame
 def Chains(nparam,filters,delay_ref,
 				burnin=0, samples_file='samples_flat.obj',
                 outputdir = './', initial=0,
-                savefig=True,figname=None):
+                savefig=True,figname=None,delay_dist=False):
 	"""Parameter Chain Plot of MCMC from PyROA outputs
 	nparam : str
 		Parameters to show in the corner plot. Can choose
@@ -77,11 +77,14 @@ def Chains(nparam,filters,delay_ref,
 	#print(ss)
 	labels = []
 	for i in range(len(filters)):
-		for j in ["A", "B",r"$\tau$", r"$\sigma$"]:
+		for j in (["A", "B",r"$\tau$", r"$\tau_{rms}$", r"$\sigma$"] if delay_dist else ["A", "B",r"$\tau$", r"$\sigma$"]):
 			labels.append(j+r'$_{'+filters[i]+r'}$')
 	labels.append(r'$\Delta$')
 	all_labels = labels.copy()
-	del labels[ss*4+2]
+	if delay_dist:
+		del labels[ss*5+2:ss*5+4]
+	else:
+		del labels[ss*4+2]
 	#print(labels)
 
 	if type(nparam ) is int:
@@ -116,11 +119,12 @@ def Chains(nparam,filters,delay_ref,
 		    ax.yaxis.set_label_coords(-0.1, 0.5)
 		    ct += 1
 		axes[-1].set_xlabel("Chain number")
-	elif (nparam == 'tau') or (nparam == 'A') or (nparam == 'B') or (nparam == 'sig'):
+	elif (nparam == 'tau') or (nparam == 'A') or (nparam == 'B') or (nparam == 'sig') or (nparam == 'tau_rms'):
 		if nparam == 'A': shifter = 0
 		if nparam == 'B': shifter = 1
 		if nparam == 'tau': shifter = 2
-		if nparam == 'sig': shifter = 3
+		if nparam == 'tau_rms': shifter = 3
+		if nparam == 'sig': shifter = 4 if delay_dist else 3
 		ndim = len(filters)
 		fig, axes = plt.subplots(ndim-1, figsize=(10, 2*ndim), sharex=True)
 		#samples = sampler.get_chain()
@@ -130,15 +134,15 @@ def Chains(nparam,filters,delay_ref,
 		for i in range(ndim):
 			if i != ss:
 			    ax = axes[ct]
-			    ax.plot(samples[:, i*4+shifter+mm], "k", alpha=0.3)
+			    ax.plot(samples[:, i*(5 if delay_dist else 4)+shifter+mm], "k", alpha=0.3)
 			    ax.set_xlim(0, len(samples))
 			    #ax.set_ylabel("Param "+str(initial+i))
-			    #print(i,all_labels[i*4+shifter])
-			    ax.set_ylabel(all_labels[i*4+shifter],fontsize=20)
+			    #print(i,all_labels[i*(5 if delay_dist else 4)+shifter])
+			    ax.set_ylabel(all_labels[i*(5 if delay_dist else 4)+shifter],fontsize=20)
 			    ax.yaxis.set_label_coords(-0.1, 0.5)
 			    ct+=1
 			if i == ss:
-				mm = -1
+				mm = -(2 if delay_dist else 1)
 		axes[-1].set_xlabel("Chain number")
 	elif (nparam == 'delta'):
 		fig, ax = plt.subplots(1, figsize=(10, 2))
@@ -162,7 +166,7 @@ def CornerPlot(nparam,filters,delay_ref,
 				burnin=0,
 				samples_file='samples_flat.obj',
 				outputdir = './',
-				savefig=True,figname=None):
+				savefig=True,figname=None,delay_dist=False):
 	"""Corner Plot of MCMC parameters from PyROA outpu
 	nparam : str
 		Parameters to show in the corner plot. Can choose
@@ -218,26 +222,30 @@ def CornerPlot(nparam,filters,delay_ref,
 	#print(ss)
 	labels = []
 	for i in range(len(filters)):
-		for j in ["A", "B",r"$\tau$", r"$\sigma$"]:
+		for j in (["A", "B",r"$\tau$", r"$\tau_{rms}$", r"$\sigma$"] if delay_dist else ["A", "B",r"$\tau$", r"$\sigma$"]):
 			labels.append(j+r'$_{'+filters[i]+r'}$')
 	labels.append(r'$\Delta$')
 	all_labels = labels.copy()
-	del labels[ss*4+2]
+	if delay_dist:
+		del labels[ss*5+2:ss*5+4]
+	else:
+		del labels[ss*4+2]
 
 	#print(labels)
-	if (nparam == 'tau') or (nparam == 'A') or (nparam == 'B') or (nparam == 'sig'):
+	if (nparam == 'tau') or (nparam == 'A') or (nparam == 'B') or (nparam == 'sig') or (nparam == 'tau_rms'):
 		if nparam == 'A': shifter = 0
 		if nparam == 'B': shifter = 1
 		if nparam == 'tau': shifter = 2
-		if nparam == 'sig': shifter = 3
+		if nparam == 'tau_rms': shifter = 3
+		if nparam == 'sig': shifter = 4 if delay_dist else 3
 
 		list_only = []
 		mm = 0
 		for i in range(len(filters)):
 			if i != ss:
-				list_only.append(i*4+shifter+mm)
+				list_only.append(i*(5 if delay_dist else 4)+shifter+mm)
 			if i == ss:
-				mm = -1
+				mm = -(2 if delay_dist else 1)
 		#print(list_only)
 		#print(np.array(labels)[list_only])
 		gg = corner.corner(samples[:,list_only],show_titles=True,
@@ -377,7 +385,7 @@ def Lightcurves(objName, filters, delay_ref,
 				limits=None, grid=False, grid_step=5.0,
 				show_delay_ref=False, ylab = None,
 				filter_labels = None, savefig=True, figname=None,
-				include_slow_comp=False,slow_comp_delta=30.0
+				include_slow_comp=False,slow_comp_delta=30.0,delay_dist=False
 				):
 	"""Plots the Lightcurve data and best fit as measured by PyROA
 
@@ -470,10 +478,12 @@ def Lightcurves(objName, filters, delay_ref,
 
 
 	#Split samples into chunks, 4 per lightcurve i.e A, B, tau, sig
-	chunk_size=4
+	chunk_size = 5 if delay_dist else 4
 	transpose_samples = np.transpose(samples_flat)
 	#Insert zero where tau_0 would be 
-	transpose_samples = np.insert(transpose_samples, [ss*4+2], np.array([0.0]*len(transpose_samples[1])), axis=0)
+	transpose_samples = np.insert(transpose_samples, [ss*chunk_size+2], np.array([0.0]*len(transpose_samples[1])), axis=0)
+	if delay_dist:
+		transpose_samples = np.insert(transpose_samples, [ss*chunk_size+3], np.array([0.0]*len(transpose_samples[1])), axis=0)
 	samples_chunks = [transpose_samples[i:i + chunk_size] for i in range(0, len(transpose_samples), chunk_size)] 
 
 
@@ -512,7 +522,7 @@ def Lightcurves(objName, filters, delay_ref,
 	    	xmax = np.nanmax(mjd)+10
 	    #Add extra variance
 	    B = np.percentile(samples_chunks[i][1], 50)
-	    sig = np.percentile(samples_chunks[i][3], 50)
+	    sig = np.percentile(samples_chunks[i][-1], 50)
 	    err = np.sqrt(err**2 + sig**2)
 
 	    
