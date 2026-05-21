@@ -1404,7 +1404,7 @@ def FullFit(data, priors, init_tau, init_delta, add_var, sig_level, Nsamples,
     else:
         backend = None
     
-    with Pool() as pool:
+    with Pool(processes=min(nwalkers, os.cpu_count() or nwalkers)) as pool:
 
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, args=[data, priors, add_var, size,sig_level, include_slow_comp, 
                                         slow_comp_delta, P_func, slow_comps, P_slow, init_delta, delay_dist, psi_types, 
