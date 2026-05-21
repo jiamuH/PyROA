@@ -1342,9 +1342,13 @@ def FullFit(data, priors, init_tau, init_delta, add_var, sig_level, Nsamples,
         if (pos_ref == 0):
             pos = np.delete(pos, [2]) 
             labels = np.delete(labels, [2])
+            pos_min = np.delete(pos_min, [2])
+            pos_max = np.delete(pos_max, [2])
         else:        
             pos = np.delete(pos, [3]) 
             labels = np.delete(labels, [3])
+            pos_min = np.delete(pos_min, [3])
+            pos_max = np.delete(pos_max, [3])
 
 
     print("Initial Parameter Values")
