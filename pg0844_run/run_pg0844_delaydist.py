@@ -54,7 +54,7 @@ def main():
     # and inherit the niceness, so no 'nice' prefix is needed on the command.
     print('process niceness set to', os.nice(10))
     PyROA.Fit(datadir, objName, filters, priors, init_tau=None,
-              Nsamples=5000, Nburnin=0, add_var=True, delay_dist=True,
+              Nsamples=50000, Nburnin=0, add_var=True, delay_dist=True,
               AccDisc=False, use_backend=True, resume_progress=setup_resume(),
               gridsize=GRIDSIZE)
 
