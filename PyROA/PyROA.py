@@ -1241,8 +1241,12 @@ def FullFit(data, priors, init_tau, init_delta, add_var, sig_level, Nsamples,
         if (AccDisc == False):        
             labels_chunks[i][2] = "\u03C4" + str(i)
             pos_chunks[i][2] = init_tau[i]
-            pos_min[i][2] = priors[1][0]
-            pos_max[i][2] = priors[1][1]
+            # tau walker-init range must use the tau prior priors[2] (same entry
+            # log_prior uses for the tau bound), NOT priors[1] (the B prior).
+            # The old priors[1] coupled tau's init to the B prior, so widening
+            # tau's init also blew up B's init. Fixed to priors[2].
+            pos_min[i][2] = priors[2][0]
+            pos_max[i][2] = priors[2][1]
         #Add shifted data to merged lightcurve        
         for j in range(len(mjd)):
             merged_mjd.append(mjd[j]-init_tau[i])
