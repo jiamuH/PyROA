@@ -1135,10 +1135,10 @@ def Slow(t, S0, dS, t0):
     return S0 + dS*(((t -t0)**2.0))
      
 
-def FullFit(data, priors, init_tau, init_delta, add_var, sig_level, Nsamples, 
+def FullFit(data, priors, init_tau, init_delta, add_var, sig_level, Nsamples,
             Nburnin, include_slow_comp, slow_comp_delta, calc_P, delay_dist,
-            psi_types, pos_ref, AccDisc, wavelengths, filters, use_backend, 
-            resume_progress, plot_corner,memfunction, gridsize):
+            psi_types, pos_ref, AccDisc, wavelengths, filters, use_backend,
+            resume_progress, plot_corner,memfunction, gridsize, optimize_init=False):
 
     
     Nchunk = 2
@@ -1238,7 +1238,7 @@ def FullFit(data, priors, init_tau, init_delta, add_var, sig_level, Nsamples,
                        
         labels_chunks[i][0] = "A"+str(i)
         labels_chunks[i][1] = "B"+str(i)
-        if (AccDisc == False):        
+        if (AccDisc == False):
             labels_chunks[i][2] = "\u03C4" + str(i)
             pos_chunks[i][2] = init_tau[i]
             # tau walker-init range must use the tau prior priors[2] (same entry
@@ -1392,7 +1392,33 @@ def FullFit(data, priors, init_tau, init_delta, add_var, sig_level, Nsamples,
     #print('int(Npar - param_delete)', int(Npar - param_delete))
     
 
-    pos = [pos_min + psize*np.random.rand(int(Npar - param_delete)) for i in range(2*((Npar-param_delete)))]
+    if (optimize_init == True and resume_progress == False):
+        # Opt-in optimize-then-ball walker init. Start from the initial guess
+        # `pos` (tau seeded from init_tau, e.g. ICCF lags; A,B,sigma data-derived),
+        # find the MAP with a local optimiser, then scatter walkers in a small
+        # ball around it. Converges far better than the uniform-over-prior init
+        # below when the posterior is multimodal / weakly constrained (e.g. a
+        # short single season). Frozen params (psize=0, e.g. a Dirac-fixed delta)
+        # get zero ball scatter and stay put.
+        import scipy.optimize as _spopt
+        pos0 = np.array(pos, dtype=float)
+        _lp_args = (data, priors, add_var, size, sig_level, include_slow_comp,
+                    slow_comp_delta, P_func, slow_comps, P_slow, init_delta,
+                    delay_dist, psi_types, pos_ref, AccDisc, wavelengths,
+                    integral, integral2, init_params_chunks, memfunction, gridsize)
+        def _neg_logp(theta):
+            v = log_probability(theta, *_lp_args)
+            return -v if np.isfinite(v) else 1e10
+        print("optimize_init: optimising from the initial guess (Powell)...")
+        _res = _spopt.minimize(_neg_logp, pos0, method="Powell",
+                               options={"maxiter": 20000, "xtol": 1e-3, "ftol": 1e-3})
+        print("optimize_init: -logP %.3f -> %.3f (success=%s)"
+              % (_neg_logp(pos0), _res.fun, _res.success))
+        _ndim = len(pos0)
+        pos = _res.x + (1e-2*psize)*np.random.randn(2*_ndim, _ndim)
+        pos = np.clip(pos, pos_min, pos_max)
+    else:
+        pos = [pos_min + psize*np.random.rand(int(Npar - param_delete)) for i in range(2*((Npar-param_delete)))]
     pos = np.array(pos)
 
     #print(np.array(pos))
@@ -1822,7 +1848,8 @@ class Fit():
                  delay_dist=False , psi_types = None, add_var=True, sig_level = 4.0, 
                  Nsamples=10000, Nburnin=0, include_slow_comp=False, slow_comp_delta=30.0, 
                  calc_P=False, AccDisc=False, wavelengths=None, 
-                 use_backend = False, resume_progress = False, plot_corner=False,memfunction='gaussian', gridsize = None):
+                 use_backend = False, resume_progress = False, plot_corner=False,memfunction='gaussian', gridsize = None,
+                 optimize_init=False):
         
         if datadir[-1] != '/': datadir += '/'  #Add forward slash in case it isn't there
         self.datadir=datadir
@@ -1892,11 +1919,13 @@ class Fit():
         self.wavelengths = wavelengths
         self.use_backend = use_backend
         self.resume_progress = resume_progress
-        run = FullFit(data, self.priors, self.init_tau, self.init_delta, self.add_var, 
-                      self.sig_level, self.Nsamples, self.Nburnin, self.include_slow_comp, 
-                      self.slow_comp_delta, self.calc_P, self.delay_dist, self.psi_types, 
-                      self.delay_ref_pos, self.AccDisc, self.wavelengths, self.filters, 
-                      self.use_backend, self.resume_progress,plot_corner,memfunction, self.gridsize)
+        self.optimize_init = optimize_init
+        run = FullFit(data, self.priors, self.init_tau, self.init_delta, self.add_var,
+                      self.sig_level, self.Nsamples, self.Nburnin, self.include_slow_comp,
+                      self.slow_comp_delta, self.calc_P, self.delay_dist, self.psi_types,
+                      self.delay_ref_pos, self.AccDisc, self.wavelengths, self.filters,
+                      self.use_backend, self.resume_progress,plot_corner,memfunction, self.gridsize,
+                      self.optimize_init)
 
         self.samples = run[0]
         self.samples_flat = run[1]

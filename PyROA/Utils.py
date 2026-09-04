@@ -670,7 +670,7 @@ def FluxFlux(objName, filters, delay_ref, gal_ref,wavelengths,
             input_units='mJy',output_units='mJy',
             redshift=0.0, ebv=0.0,
             limits=None, ylab = None,
-            savefig=True, figname=None):
+            savefig=True, figname=None, delay_dist=False):
     """Flux-Flux analysis and Spectral energy distribution as
     estimated by PyROA.
 
@@ -803,12 +803,14 @@ def FluxFlux(objName, filters, delay_ref, gal_ref,wavelengths,
     norm_lc = pickle.load(file)
     wave = np.array(wavelengths)
 
-    #Split samples into chunks, 4 per lightcurve i.e A, B, tau, sig
-    chunk_size=4
+    #Split samples into chunks: 4/lightcurve (A,B,tau,sig) or 5 if delay_dist
+    chunk_size = 5 if delay_dist else 4
     transpose_samples = np.transpose(samples_flat)
     #Insert zero where tau_0 would be 
-    transpose_samples = np.insert(transpose_samples, [ss*4+2], np.array([0.0]*len(transpose_samples[1])), axis=0)
-    samples_chunks = [transpose_samples[i:i + chunk_size] for i in range(0, len(transpose_samples), chunk_size)] 
+    transpose_samples = np.insert(transpose_samples, [ss*chunk_size+2], np.array([0.0]*len(transpose_samples[1])), axis=0)
+    if delay_dist:
+        transpose_samples = np.insert(transpose_samples, [ss*chunk_size+3], np.array([0.0]*len(transpose_samples[1])), axis=0)
+    samples_chunks = [transpose_samples[i:i + chunk_size] for i in range(0, len(transpose_samples), chunk_size)]
 
     gal_spectrum,gal_spectrum_err,fnu_f,fnu_b,slope,slope_err = [],[],[],[],[],[]
     fnu_f_err,fnu_b_err = [], []
@@ -826,12 +828,12 @@ def FluxFlux(objName, filters, delay_ref, gal_ref,wavelengths,
             data = np.loadtxt(file)
             snu_mcmc = samples_chunks[i][0]
             cnu_mcmc = samples_chunks[i][1]            
-            sig = np.percentile(samples_chunks[i][3], 50)
+            sig = np.percentile(samples_chunks[i][-1], 50)
 
             mc_pl = np.zeros((200,xx.size))
 
             for lo in range(200):
-                jj = np.int(np.random.uniform(0,snu_mcmc.size))
+                jj = int(np.random.uniform(0,snu_mcmc.size))
                 mc_pl[lo] = cnu_mcmc[jj] + xx * snu_mcmc[jj]
             
             if filters[i] == gal_ref: 
@@ -935,7 +937,7 @@ def FluxFlux(objName, filters, delay_ref, gal_ref,wavelengths,
 
     if savefig:
         if figname == None: figname = 'pyroa'
-        plt.savefig(figname+'_fluxflux.pdf')
+        plt.savefig(figname+'_fluxflux.png', dpi=200)
 	
 
     if wavelengths != None:
@@ -987,7 +989,7 @@ def FluxFlux(objName, filters, delay_ref, gal_ref,wavelengths,
         plt.tight_layout()
         if savefig:
             if figname == None: figname = 'pyroa_SED.pdf'
-            plt.savefig(figname+'_SED.pdf')
+            plt.savefig(figname+'_SED.png', dpi=200)
     else:
         print(' [PyROA] No wavelength list. Skipping SED plot.')
         # Create output file from flux-flux analysis
