@@ -1415,7 +1415,21 @@ def FullFit(data, priors, init_tau, init_delta, add_var, sig_level, Nsamples,
         print("optimize_init: -logP %.3f -> %.3f (success=%s)"
               % (_neg_logp(pos0), _res.fun, _res.success))
         _ndim = len(pos0)
-        pos = _res.x + (1e-2*psize)*np.random.randn(2*_ndim, _ndim)
+        # Keep the MAP strictly inside the walker-init box before scattering.
+        # If the optimiser ran a coordinate past a bound (sigma routinely
+        # wants more than its 2*mean(err) init cap), clipping the walkers
+        # afterwards would put every walker at that bound exactly, and emcee's
+        # stretch move can never separate a coordinate on which all walkers
+        # coincide: the parameter would stay frozen for the whole run. Pulling
+        # the centre 2% inside and scattering by 1% leaves the walkers spread,
+        # and they then move out to the true prior (10 mJy for sigma) as the
+        # chain burns in. Frozen params (psize = 0) are unaffected.
+        _x = np.clip(_res.x, pos_min + 0.02*psize, pos_max - 0.02*psize)
+        _moved = np.abs(_x - _res.x) > 0
+        if _moved.any():
+            print("optimize_init: MAP outside the init box on %d coordinate(s) "
+                  "(indices %s); centred inside" % (_moved.sum(), np.flatnonzero(_moved)))
+        pos = _x + (1e-2*psize)*np.random.randn(2*_ndim, _ndim)
         pos = np.clip(pos, pos_min, pos_max)
     else:
         pos = [pos_min + psize*np.random.rand(int(Npar - param_delete)) for i in range(2*((Npar-param_delete)))]
