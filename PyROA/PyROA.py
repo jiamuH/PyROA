@@ -252,10 +252,23 @@ def RunningOptimalAverage(t_data, Flux, Flux_err, delta,memfunction, gridsize):
         
 
         if (len(np.where(np.absolute(t[j]-t_data) < 5.0*delta)[0])<1):
-            #Define Gaussian Memory Function
+            # No data within 5 delta (a grid point inside a season gap).
+            # Gaussian weights evaluated directly underflow once the nearest
+            # datum is further than ~sqrt(2*708) delta (a 160 d gap at
+            # delta ~ 2 d): the sum is then a denormal or exactly zero, the
+            # average becomes +-inf or the j-1 fallback, and the whole
+            # normalised model turns NaN. Factor the largest weight out in
+            # log space so the average is always finite; only the error
+            # carries the (capped) scale factor.
             if memfunction == 'gaussian':
-                w =  np.exp(-0.5*(((t[j]-t_data)/delta)**2))/(Flux_err**2)
-        
+                x2 = ((t[j]-t_data)/delta)**2
+                x2min = np.min(x2)
+                w = np.exp(-0.5*(x2 - x2min))/(Flux_err**2)
+                w_sum = np.nansum(w)
+                model[j] = np.nansum(Flux*w)/w_sum
+                errs[j] = np.sqrt(1.0/w_sum)*np.exp(min(0.25*x2min, 300.0))
+                continue
+
             #1/cosh Memory Function
             if memfunction == 'invcosh':
                 w = 1.0/((Flux_err**2)*np.cosh((t[j]-t_data)/delta))
@@ -950,8 +963,13 @@ def BIC(params, data, add_var, size, sig_level,include_slow_comp, slow_comp_delt
     BIC =  lprob + Penalty
 
 
-    if (math.isnan(BIC) == True):
-        return -np.inf
+    # BIC is a *penalty* (log_probability returns lp - BIC), so an
+    # unusable model must return +inf, not -inf. Returning -inf here gave
+    # the walker log_prob = +inf: emcee accepted the NaN-model proposal and
+    # no finite proposal could ever beat it, so the ensemble collapsed onto
+    # those points (run_pytics_hf, PG 0844, delta ~ 2 d in season gaps).
+    if not np.isfinite(BIC):
+        return np.inf
     else:
         return BIC
     
@@ -1119,8 +1137,12 @@ def log_probability(params, data, priors, add_var, size, sig_level, include_slow
     lp = log_prior(params, priors, add_var, data, delay_dist,  AccDisc, wavelengths, init_params_chunks)
     if not np.isfinite(lp):
         return -np.inf
-    return lp - BIC(params, data, add_var, size, sig_level, include_slow_comp, slow_comp_delta,P_func, slow_comps, P_slow, 
-                    init_delta, delay_dist,psi_types, pos_ref, AccDisc, wavelengths, integral, integral2,memfunction, gridsize)
+    bic = BIC(params, data, add_var, size, sig_level, include_slow_comp, slow_comp_delta,P_func, slow_comps, P_slow,
+              init_delta, delay_dist,psi_types, pos_ref, AccDisc, wavelengths, integral, integral2,memfunction, gridsize)
+    # A non-finite penalty (NaN/inf model) must reject the proposal.
+    if not np.isfinite(bic):
+        return -np.inf
+    return lp - bic
 
     
     
