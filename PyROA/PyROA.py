@@ -1446,13 +1446,27 @@ def FullFit(data, priors, init_tau, init_delta, add_var, sig_level, Nsamples,
         # the centre 2% inside and scattering by 1% leaves the walkers spread,
         # and they then move out to the true prior (10 mJy for sigma) as the
         # chain burns in. Frozen params (psize = 0) are unaffected.
-        _x = np.clip(_res.x, pos_min + 0.02*psize, pos_max - 0.02*psize)
+        # Clip to the PRIOR box, not the walker-init box. They coincide for
+        # A, B, tau and delta, but the extra-variance init box is the prior
+        # scaled by 1/5 (init sigma = mean(err)/5, log_prior divides by
+        # 5*init), so clipping sigma to the init box parked every walker on
+        # 2*mean(err) when the MAP wanted more and the chain then spent
+        # thousands of steps climbing back (PG 0844 run_pytics_hf2: -2700
+        # in log-prob at step 0).
+        _cmin = pos_min.copy()
+        _cmax = pos_max.copy()
+        if (add_var == True):
+            _is_var = np.array([str(l).startswith("σ") for l in labels])
+            _cmin[_is_var] *= 5.0
+            _cmax[_is_var] *= 5.0
+        _csize = _cmax - _cmin
+        _x = np.clip(_res.x, _cmin + 0.02*_csize, _cmax - 0.02*_csize)
         _moved = np.abs(_x - _res.x) > 0
         if _moved.any():
-            print("optimize_init: MAP outside the init box on %d coordinate(s) "
+            print("optimize_init: MAP outside the prior box on %d coordinate(s) "
                   "(indices %s); centred inside" % (_moved.sum(), np.flatnonzero(_moved)))
         pos = _x + (1e-2*psize)*np.random.randn(2*_ndim, _ndim)
-        pos = np.clip(pos, pos_min, pos_max)
+        pos = np.clip(pos, _cmin, _cmax)
     else:
         pos = [pos_min + psize*np.random.rand(int(Npar - param_delete)) for i in range(2*((Npar-param_delete)))]
     pos = np.array(pos)
